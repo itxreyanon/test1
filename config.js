@@ -26,7 +26,7 @@ export const config = {
   },
   modules: {
     autoLoad: process.env.AUTO_LOAD_MODULES !== 'false',
-    modulesPath: './src/modules',
+    modulesPath: './modules',
     enabledModules: (process.env.ENABLED_MODULES || '').split(',').filter(Boolean)
   }
 };
