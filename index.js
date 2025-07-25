@@ -1,6 +1,6 @@
 import { IgApiClient } from 'instagram-private-api';
 import { withFbnsAndRealtime } from 'instagram_mqtt';
-import { SessionManager } from './session-manager.js';
+import { SessionManager } from './session.js';
 import { RealtimeHandler } from './realtime-handler.js';
 import { PushHandler } from './push-handler.js';
 import { BotFeatures } from './bot-features.js';
