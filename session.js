@@ -70,7 +70,7 @@ async login() {
   if (sessionLoaded) {
     console.log('✅ Using existing session');
   } else if (await this.loadCookies()) {
-    console.log('✅ Using browser cookies to restore session');
+    console.log('✅ Using cookies to restore session');
     await this.saveSession();
   } else {
     console.log('🔐 Logging in with credentials...');
