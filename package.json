@@ -1,0 +1,19 @@
+{
+  "name": "instagram-bot",
+  "version": "1.0.0",
+  "description": "Instagram bot with session management using instagram_mqtt",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "instagram-private-api": "^1.46.1",
+    "instagram_mqtt": "^1.2.3",
+    "dotenv": "^16.3.1"
+  },
+  "keywords": ["instagram", "bot", "mqtt", "realtime"],
+  "author": "",
+  "license": "MIT"
+}
