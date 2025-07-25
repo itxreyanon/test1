@@ -5,6 +5,7 @@ export class SessionManager {
   constructor(ig) {
     this.ig = ig;
     this.sessionFile = config.sessionFile;
+    this.cookiesFile = config.cookiesFile; // e.g., 'cookies.json'
   }
 
   async saveSession() {
@@ -23,16 +24,34 @@ export class SessionManager {
       await this.ig.importState(data);
       console.log('✅ Session loaded successfully');
       return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async loadCookies() {
+    try {
+      const cookieData = await fs.readFile(this.cookiesFile, 'utf8');
+      const parsed = JSON.parse(cookieData);
+
+      await this.ig.state.deserialize(parsed);
+      console.log('✅ Loaded session from cookies');
+      return true;
     } catch (error) {
-      console.log('ℹ️ No existing session found, will create new one');
+      console.log('ℹ️ No valid cookies found, will try credentials next');
       return false;
     }
   }
 
   async login() {
     const sessionLoaded = await this.loadSession();
-    
-    if (!sessionLoaded) {
+
+    if (sessionLoaded) {
+      console.log('✅ Using existing session');
+    } else if (await this.loadCookies()) {
+      console.log('✅ Using cookies to restore session');
+      await this.saveSession(); // Save serialized version of cookie state
+    } else {
       console.log('🔐 Logging in with credentials...');
       try {
         await this.ig.account.login(config.username, config.password);
@@ -42,11 +61,9 @@ export class SessionManager {
         console.error('❌ Login failed:', error.message);
         throw error;
       }
-    } else {
-      console.log('✅ Using existing session');
     }
 
-    // Set up auto-save on requests
+    // Automatically save session after each request
     this.ig.request.end$.subscribe(() => this.saveSession());
   }
 
