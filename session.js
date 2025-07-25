@@ -30,62 +30,65 @@ export class SessionManager {
     }
   }
 
-  async loadCookies() {
+import { CookieJar, Cookie } from 'tough-cookie';
+
+async loadCookies() {
+  try {
+    const rawCookies = JSON.parse(await fs.readFile(this.cookiesFile, 'utf8'));
+
+    const jar = new CookieJar();
+    for (const c of rawCookies) {
+      const cookie = new Cookie({
+        key: c.name,
+        value: c.value,
+        domain: c.domain.replace(/^\./, ''), // Remove leading dot if present
+        path: c.path || '/',
+        secure: true,
+        httpOnly: c.httpOnly || false,
+        expires: c.expires ? new Date(c.expires * 1000) : 'Infinity'
+      });
+      await jar.setCookie(cookie.toString(), `https://${cookie.domain}`);
+    }
+
+    this.ig.state.cookieJar = jar;
+    await this.ig.state.deserialize(await this.ig.state.serialize()); // ensure internal state matches jar
+
+    const dsUserId = await this.ig.state.extractCookie('ds_user_id');
+    if (!dsUserId) throw new Error('ds_user_id cookie not found');
+
+    console.log('✅ Loaded session from browser cookies');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to load browser cookies:', error.message);
+    return false;
+  }
+}
+
+async login() {
+  const sessionLoaded = await this.loadSession();
+
+  if (sessionLoaded) {
+    console.log('✅ Using existing session');
+  } else if (await this.loadCookies()) {
+    console.log('✅ Using browser cookies to restore session');
+    await this.saveSession();
+  } else {
+    console.log('🔐 Logging in with credentials...');
     try {
-      const cookieData = await fs.readFile(this.cookiesFile, 'utf8');
-      const cookies = JSON.parse(cookieData);
-
-      for (const c of cookies) {
-        const cookie = new Cookie({
-          key: c.name,
-          value: c.value,
-          domain: c.domain.replace(/^\./, ''),
-          path: c.path || '/',
-          secure: c.secure !== false,
-          httpOnly: c.httpOnly !== false,
-          expires: c.expires ? new Date(c.expires) : 'Infinity',
-        });
-
-        await this.ig.state.cookieJar.setCookie(
-          cookie.toString(),
-          `https://${cookie.domain}${cookie.path}`
-        );
-      }
-
-      await this.ig.account.currentUser(); // ensure it's valid
-      console.log('✅ Logged in using browser cookies');
-      return true;
-    } catch (error) {
-      console.log('ℹ️ Failed to load cookies:', error.message);
-      return false;
-    }
-  }
-
-  async login() {
-    const sessionLoaded = await this.loadSession();
-
-    if (sessionLoaded) {
-      console.log('✅ Using existing session');
-    } else if (await this.loadCookies()) {
-      console.log('✅ Using cookies to restore session');
+      await this.ig.simulate.preLoginFlow();
+      await this.ig.account.login(config.username, config.password);
+      await this.ig.simulate.postLoginFlow();
+      console.log('✅ Login successful');
       await this.saveSession();
-    } else {
-      console.log('🔐 Logging in with credentials...');
-      try {
-        await this.ig.simulate.preLoginFlow();
-        await this.ig.account.login(config.username, config.password);
-        await this.ig.simulate.postLoginFlow();
-        console.log('✅ Login successful');
-        await this.saveSession();
-      } catch (error) {
-        console.error('❌ Login failed:', error.message);
-        throw error;
-      }
+    } catch (error) {
+      console.error('❌ Login failed:', error.message);
+      throw error;
     }
-
-    // auto save session after each request
-    this.ig.request.end$.subscribe(() => this.saveSession());
   }
+
+  this.ig.request.end$.subscribe(() => this.saveSession());
+}
+
 
   async logout() {
     try {
