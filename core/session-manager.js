@@ -1,12 +1,13 @@
+// session-manager.js
 import fs from 'fs';
 import path from 'path';
-import tough from 'tough-cookie';
+import tough from 'tough-cookie'; // Still needed for tough-cookie type if you're keeping loadCookies/saveCookies
 
 export class SessionManager {
   constructor(sessionPath = '.session') {
     this.sessionPath = sessionPath;
     this.cookiesPath = path.join(sessionPath, 'cookies.json');
-    this.statePath = path.join(sessionPath, 'state.json');
+    this.statePath = path.join(sessionPath, 'state.json'); // This will store the full ig.state
     this.ensureSessionDirectory();
   }
 
@@ -16,11 +17,13 @@ export class SessionManager {
     }
   }
 
+  // NOTE: This saveCookies will now ONLY save the raw cookie jar.
+  // The full state (including FBNS auth) will be handled by saveState.
   async saveCookies(cookieJar) {
     try {
       const cookies = [];
       const store = cookieJar.store;
-      
+
       for (const domain of Object.keys(store.idx)) {
         for (const path of Object.keys(store.idx[domain])) {
           for (const key of Object.keys(store.idx[domain][path])) {
@@ -46,6 +49,8 @@ export class SessionManager {
     }
   }
 
+  // NOTE: This loadCookies will now ONLY load the raw cookie jar.
+  // The full state (including FBNS auth) will be handled by loadState.
   async loadCookies(ig) {
     try {
       if (!fs.existsSync(this.cookiesPath)) {
@@ -78,29 +83,32 @@ export class SessionManager {
     }
   }
 
-  saveState(state) {
+  // This method saves the FULL ig.state (returned by ig.exportState())
+  saveState(stateString) { // Expects a string from ig.exportState()
     try {
-      fs.writeFileSync(this.statePath, JSON.stringify(state, null, 2));
+      fs.writeFileSync(this.statePath, stateString, { encoding: 'utf8' });
       return true;
     } catch (error) {
-      console.error('Failed to save state:', error.message);
+      console.error('Failed to save full IgApiClient state:', error.message);
       return false;
     }
   }
 
+  // This method loads the FULL ig.state string (to be imported by ig.importState())
   loadState() {
     try {
       if (!fs.existsSync(this.statePath)) {
-        return null;
+        return null; // Return null if file doesn't exist
       }
       const raw = fs.readFileSync(this.statePath, 'utf-8');
-      return JSON.parse(raw);
+      return raw; // Return raw string, IgApiClient.importState() expects this
     } catch (error) {
-      console.error('Failed to load state:', error.message);
+      console.error('Failed to load full IgApiClient state:', error.message);
       return null;
     }
   }
 
+  // Clears both cookies.json and state.json
   clearSession() {
     try {
       if (fs.existsSync(this.cookiesPath)) {
