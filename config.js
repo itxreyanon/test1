@@ -1,15 +1,16 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
 export const config = {
-  username: process.env.IG_USERNAME,
-  password: process.env.IG_PASSWORD,
-  sessionFile: process.env.SESSION_FILE || './session.json',
-  debug: process.env.DEBUG || false
+  // Set either credentials or cookie path (or both)
+  username: 'vemahik1679',        // Leave null if using only cookies
+  password: 'zzzz',        // Leave null if using only cookies
+
+  sessionFile: './session.json',              // Serialized session file (auto-saved)
+  cookiesFile: './cookies.json',              // Optional: Cookie-based login fallback
+
+  debug: false                                 // Enable debug logging
 };
 
-// Validate required config
-if (!config.username || !config.password) {
-  console.error('❌ Missing required environment variables: IG_USERNAME and IG_PASSWORD');
+// Validation logic
+if ((!config.username || !config.password) && !config.cookiesFile) {
+  console.error('❌ You must provide either username/password or cookiesFile in config.js');
   process.exit(1);
 }
