@@ -33,7 +33,37 @@ export class SessionManager {
 
 
 
-  async loadCookiesFromJson(path = './cookies.json') {
+
+ async login() {
+  try {
+    const username = config.instagram.username;
+
+    if (!username) {
+      throw new Error('❌ INSTAGRAM_USERNAME is missing from config or environment.');
+    }
+
+    this.ig.state.generateDevice(username);
+
+    // Load cookies from file
+    await this.loadCookiesFromJson('./cookies.json');
+
+    try {
+      await this.ig.account.currentUser(); // test session validity
+      logger.info('✅ Logged in using saved cookies');
+      this.startMessageListener();
+    } catch (err) {
+      logger.error('❌ Invalid or expired cookies:', err.message);
+      throw err;
+    }
+  } catch (error) {
+    logger.error('❌ Failed to initialize bot:', error.message);
+    throw error;
+  }
+
+  this.ig.request.end$.subscribe(() => this.saveSession());
+}
+async loadCookiesFromJson(path = './cookies.json') {
+  try {
     const raw = fs.readFileSync(path, 'utf-8');
     const cookies = JSON.parse(raw);
 
@@ -42,44 +72,26 @@ export class SessionManager {
         key: cookie.name,
         value: cookie.value,
         domain: cookie.domain.replace(/^\./, ''),
-        path: cookie.path || '/',
-        secure: cookie.secure !== false,
-        httpOnly: cookie.httpOnly !== false,
+        path: cookie.path,
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
       });
 
       await this.ig.state.cookieJar.setCookie(
         toughCookie.toString(),
-        `https://${toughCookie.domain}${toughCookie.path}`
+        `https://${cookie.domain}${cookie.path}`
       );
     }
 
-    this.log('INFO', `🍪 Loaded ${cookies.length} cookies from file`);
+    logger.info('🍪 Loaded Instagram cookies from file');
+  } catch (error) {
+    logger.error('❌ Failed to load cookies:', error.message);
+    throw error;
   }
-
-async login() {
-  const sessionLoaded = await this.loadSession();
-
-  if (sessionLoaded) {
-    console.log('✅ Using existing session');
-  } else if (await this.loadCookies()) {
-    console.log('✅ Using cookies to restore session');
-    await this.saveSession();
-  } else {
-    console.log('🔐 Logging in with credentials...');
-    try {
-      await this.ig.simulate.preLoginFlow();
-      await this.ig.account.login(config.username, config.password);
-      await this.ig.simulate.postLoginFlow();
-      console.log('✅ Login successful');
-      await this.saveSession();
-    } catch (error) {
-      console.error('❌ Login failed:', error.message);
-      throw error;
-    }
-  }
-
-  this.ig.request.end$.subscribe(() => this.saveSession());
 }
+
+
+
 
 
   async logout() {
