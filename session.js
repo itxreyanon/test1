@@ -49,14 +49,14 @@ export class SessionManager {
 
     try {
       await this.ig.account.currentUser(); // test session validity
-      logger.info('✅ Logged in using saved cookies');
+      console.info('✅ Logged in using saved cookies');
       this.startMessageListener();
     } catch (err) {
-      logger.error('❌ Invalid or expired cookies:', err.message);
+      console.error('❌ Invalid or expired cookies:', err.message);
       throw err;
     }
   } catch (error) {
-    logger.error('❌ Failed to initialize bot:', error.message);
+    console.error('❌ Failed to initialize bot:', error.message);
     throw error;
   }
 
@@ -83,9 +83,9 @@ async loadCookiesFromJson(path = './cookies.json') {
       );
     }
 
-    logger.info('🍪 Loaded Instagram cookies from file');
+    console.info('🍪 Loaded Instagram cookies from file');
   } catch (error) {
-    logger.error('❌ Failed to load cookies:', error.message);
+    console.error('❌ Failed to load cookies:', error.message);
     throw error;
   }
 }
