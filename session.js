@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import tough from 'tough-cookie';
-
+import { promises as fs } from 'fs';
 import { config } from './config.js';
 
 export class SessionManager {
