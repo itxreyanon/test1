@@ -1,4 +1,4 @@
-import { GraphQLSubscriptions, SkywalkerSubscriptions } from 'instagram_mqtt/dist/realtime/subscriptions';
+import { GraphQLSubscriptions, SkywalkerSubscriptions } from 'instagram_mqtt/dist/realtime/subscriptions/index.js';
 
 export class RealtimeHandler {
   constructor(ig, logger) {
