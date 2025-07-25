@@ -5,8 +5,8 @@ export const config = {
 
   sessionFile: './session.json',              // Serialized session file (auto-saved)
   cookiesFile: './cookies.json',              // Optional: Cookie-based login fallback
-
-  debug: false                                 // Enable debug logging
+  useIrisData: false.
+  debug: true                                 // Enable debug logging
 };
 
 // Validation logic
