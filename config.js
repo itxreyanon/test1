@@ -4,7 +4,7 @@ export const config = {
     password: process.env.INSTAGRAM_PASSWORD,
     allowFreshLogin: process.env.ALLOW_FRESH_LOGIN !== 'false',
     sessionPath: '.session',
-    cookiesPath: '.cookies.json'
+    cookiesPath: './cookies.json'
   },
   bot: {
     prefix: process.env.BOT_PREFIX || '.',
