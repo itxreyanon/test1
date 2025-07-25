@@ -43,29 +43,31 @@ export class SessionManager {
     }
   }
 
-  async login() {
-    const sessionLoaded = await this.loadSession();
+async login() {
+  const sessionLoaded = await this.loadSession();
 
-    if (sessionLoaded) {
-      console.log('✅ Using existing session');
-    } else if (await this.loadCookies()) {
-      console.log('✅ Using cookies to restore session');
-      await this.saveSession(); // Save serialized version of cookie state
-    } else {
-      console.log('🔐 Logging in with credentials...');
-      try {
-        await this.ig.account.login(config.username, config.password);
-        console.log('✅ Login successful');
-        await this.saveSession();
-      } catch (error) {
-        console.error('❌ Login failed:', error.message);
-        throw error;
-      }
+  if (sessionLoaded) {
+    console.log('✅ Using existing session');
+  } else if (await this.loadCookies()) {
+    console.log('✅ Using cookies to restore session');
+    await this.saveSession();
+  } else {
+    console.log('🔐 Logging in with credentials...');
+    try {
+      await this.ig.simulate.preLoginFlow(); // ← Add this
+      await this.ig.account.login(config.username, config.password);
+      await this.ig.simulate.postLoginFlow(); // ← And this
+      console.log('✅ Login successful');
+      await this.saveSession();
+    } catch (error) {
+      console.error('❌ Login failed:', error.message);
+      throw error;
     }
-
-    // Automatically save session after each request
-    this.ig.request.end$.subscribe(() => this.saveSession());
   }
+
+  this.ig.request.end$.subscribe(() => this.saveSession());
+}
+
 
   async logout() {
     try {
