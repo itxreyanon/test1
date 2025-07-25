@@ -131,15 +131,13 @@ export class AdvancedInstagramBot extends EventManager {
 
       // Initialize handlers
       await this.realtimeHandler.initialize();
-      await this.pushHandler.initialize();
-      
+
       // Load modules
       await this.moduleManager.loadModules();
       
       // Connect realtime and push
       await this.realtimeHandler.connect();
-      await this.pushHandler.connect();
-      
+ 
       this.isConnected = true;
       this.isRunning = true;
       this.startTime = new Date();
