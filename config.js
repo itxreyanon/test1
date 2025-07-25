@@ -22,7 +22,7 @@ export const config = {
   },
   push: {
     autoReconnect: process.env.PUSH_AUTO_RECONNECT !== 'false',
-    enableTrace: process.env.PUSH_ENABLE_TRACE === 'true'
+    enableTrace: process.env.PUSH_ENABLE_TRACE === 'false'
   },
   modules: {
     autoLoad: process.env.AUTO_LOAD_MODULES !== 'false',
