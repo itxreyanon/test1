@@ -1,6 +1,5 @@
 import { promises as fs } from 'fs';
 import tough from 'tough-cookie';
-import { promises as fs } from 'fs';
 import { config } from './config.js';
 
 export class SessionManager {
@@ -64,7 +63,7 @@ export class SessionManager {
 }
 async loadCookiesFromJson(path = './cookies.json') {
   try {
-    const raw = fs.readFileSync(path, 'utf-8');
+    const raw = await fs.readFile(path, 'utf-8');
     const cookies = JSON.parse(raw);
 
     for (const cookie of cookies) {
