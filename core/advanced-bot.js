@@ -1,6 +1,6 @@
 import { IgApiClient } from 'instagram-private-api';
 import { withRealtime, withFbns, withFbnsAndRealtime } from 'instagram_mqtt';
-const { GraphQLSubscriptions, SkywalkerSubscriptions } = require('instagram_mqtt/dist/realtime/subscriptions')
+import { GraphQLSubscriptions, SkywalkerSubscriptions } = require('instagram_mqtt/dist/realtime/subscriptions')
 import { Logger } from './logger.js';
 import { SessionManager } from './session-manager.js';
 import { EventManager } from './event-manager.js';
