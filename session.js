@@ -36,10 +36,10 @@ export class SessionManager {
 
  async login() {
   try {
-    const username = config.instagram.username;
+    const username = config.username;
 
     if (!username) {
-      throw new Error('❌ INSTAGRAM_USERNAME is missing from config or environment.');
+      throw new Error('❌ INSTAGRAM USERNAME is missing from config or environment.');
     }
 
     this.ig.state.generateDevice(username);
