@@ -1,7 +1,7 @@
+// AdvancedInstagramBot.js
 import { IgApiClient } from 'instagram-private-api';
-import { withRealtime, withFbns, withFbnsAndRealtime } from 'instagram_mqtt';
-import { GraphQLSubscriptions, SkywalkerSubscriptions } from 'instagram_mqtt/dist/realtime/subscriptions/index.js';
-
+import { withFbnsAndRealtime } from 'instagram_mqtt';
+// import { GraphQLSubscriptions, SkywalkerSubscriptions } from 'instagram_mqtt/dist/realtime/subscriptions/index.js'; // Not used in this file
 import { Logger } from './logger.js';
 import { SessionManager } from './session-manager.js';
 import { EventManager } from './event-manager.js';
@@ -14,7 +14,7 @@ import { config } from '../config.js';
 export class AdvancedInstagramBot extends EventManager {
   constructor(options = {}) {
     super();
-    
+
     // Core components
     this.config = { ...config, ...options };
     this.logger = new Logger({
@@ -22,18 +22,19 @@ export class AdvancedInstagramBot extends EventManager {
       enableFile: this.config.bot.enableLogging,
       logFile: '.logs/bot.log'
     });
-    
+
+    // Initialize SessionManager with the session path from config
     this.sessionManager = new SessionManager(this.config.instagram.sessionPath);
-    
+
     // Instagram client with realtime and push support
     this.ig = withFbnsAndRealtime(new IgApiClient());
-    
+
     // Handlers
     this.realtimeHandler = new RealtimeHandler(this.ig, this.logger);
     this.pushHandler = new PushHandler(this.ig, this.logger);
     this.moduleManager = new ModuleManager(this, this.logger);
     this.messageHandler = new MessageHandler(this, this.moduleManager, this.logger);
-    
+
     // Bot state
     this.isRunning = false;
     this.isConnected = false;
@@ -43,7 +44,7 @@ export class AdvancedInstagramBot extends EventManager {
     this.messageHandlers = [];
     this.commandHandlers = new Map();
     this.middleware = [];
-    
+
     // Statistics
     this.stats = {
       messagesReceived: 0,
@@ -87,69 +88,101 @@ export class AdvancedInstagramBot extends EventManager {
       this.logger.error('Bot error:', error);
       this.stats.errors++;
     });
+
+    // CRUCIAL: Subscribe to IgApiClient's request completion to save the full state
+    // This ensures that the state (including FBNS tokens) is saved
+    // whenever the ig client completes an API request.
+    this.ig.request.end$.subscribe(async () => {
+      try {
+        const fullState = await this.ig.exportState();
+        this.sessionManager.saveState(fullState);
+      } catch (error) {
+        this.logger.error('Failed to auto-save IgApiClient state:', error);
+        this.stats.errors++;
+      }
+    });
+
+    // Also explicitly save FBNS auth state when the 'auth' event fires
+    this.ig.fbns.on('auth', async (auth) => {
+      this.logger.info('🔐 FBNS authenticated, ensuring full state is saved...');
+      try {
+        const fullState = await this.ig.exportState();
+        this.sessionManager.saveState(fullState);
+      } catch (error) {
+        this.logger.error('Failed to save state on FBNS auth event:', error);
+        this.stats.errors++;
+      }
+    });
   }
 
   async initialize() {
     try {
       this.logger.info('🚀 Initializing Advanced Instagram Bot...');
-      
-      // Generate device
+
+      // Generate device ID FIRST
       this.ig.state.generateDevice(this.config.instagram.username);
-      
-      // Try to login with saved session first
+
       let loginSuccess = false;
-      
-      if (await this.sessionManager.loadCookies(this.ig)) {
+
+      // --- Attempt to load full state from state.json first ---
+      this.logger.info('Attempting to load saved full state...');
+      const loadedState = this.sessionManager.loadState();
+      if (loadedState) {
         try {
-          this.user = await this.ig.account.currentUser();
+          await this.ig.importState(loadedState); // Import the full state
+          this.user = await this.ig.account.currentUser(); // Verify the loaded state
           loginSuccess = true;
-          this.logger.info('✅ Logged in using saved session');
+          this.logger.info('✅ Logged in using saved full state (state.json)');
         } catch (error) {
-          this.logger.warn('⚠️ Saved session invalid, attempting fresh login');
+          this.logger.warn('⚠️ Saved full state invalid or expired. Attempting fresh login and clearing old state.');
+          this.sessionManager.clearSession(); // Clear both cookies.json and state.json
         }
       }
 
-      // Fresh login if session login failed
+      // --- Fresh login if previous attempt (via state.json) failed ---
       if (!loginSuccess) {
         if (!this.config.instagram.allowFreshLogin) {
           throw new Error('Fresh login disabled and session login failed');
         }
-        
+
         if (!this.config.instagram.password) {
           throw new Error('Password required for fresh login');
         }
 
+        this.logger.info('Attempting fresh login...');
         await this.ig.account.login(
           this.config.instagram.username,
           this.config.instagram.password
         );
-        
+
         this.user = await this.ig.account.currentUser();
-        await this.sessionManager.saveCookies(this.ig.state.cookieJar);
-        this.logger.info('✅ Fresh login successful');
+        // Save the newly generated full state after fresh login
+        const fullStateToSave = await this.ig.exportState();
+        this.sessionManager.saveState(fullStateToSave);
+        this.logger.info('✅ Fresh login successful, full state saved to state.json');
       }
 
       // Initialize handlers
       await this.realtimeHandler.initialize();
       await this.pushHandler.initialize();
-      
+
       // Load modules
       await this.moduleManager.loadModules();
-      
+
       // Connect realtime and push
       await this.realtimeHandler.connect();
-      await this.pushHandler.connect();
-      
+      await this.pushHandler.connect(); // This should now work as full state is loaded
+
       this.isConnected = true;
       this.isRunning = true;
       this.startTime = new Date();
-      
+
       this.logger.info(`✅ Bot initialized as @${this.user.username} (ID: ${this.user.pk})`);
       this.emit('ready');
-      
+
       // Start heartbeat
       this.startHeartbeat();
-      
+
       return true;
     } catch (error) {
       this.logger.error('❌ Failed to initialize bot:', error);
@@ -300,20 +333,22 @@ export class AdvancedInstagramBot extends EventManager {
 
   async gracefulShutdown() {
     this.logger.info('👋 Initiating graceful shutdown...');
-    
+
     try {
       this.isRunning = false;
-      
-      // Save session
-      await this.sessionManager.saveCookies(this.ig.state.cookieJar);
-      
+
+      // Save the final full state before disconnecting
+      const finalState = await this.ig.exportState();
+      this.sessionManager.saveState(finalState);
+      this.logger.info('✅ Final full state saved before shutdown.');
+
       // Disconnect handlers
       await this.realtimeHandler.disconnect();
       await this.pushHandler.disconnect();
-      
+
       // Unload modules
       await this.moduleManager.unloadModules();
-      
+
       this.logger.info('✅ Graceful shutdown completed');
       process.exit(0);
     } catch (error) {
