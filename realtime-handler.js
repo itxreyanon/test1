@@ -6,41 +6,43 @@ export class RealtimeHandler {
     this.isConnected = false;
   }
 
-  async connect() {
-    if (this.isConnected) return;
+async connect() {
+  if (this.isConnected) return;
 
-    console.log('🔄 Connecting to Instagram realtime...');
-    
-    try {
-      // Set up event listeners before connecting
-      this.setupEventListeners();
+  console.log('🔄 Connecting to Instagram realtime...');
 
-      // Get initial data for message sync
+  try {
+    this.setupEventListeners();
+
+    const connectionOptions = {
+      graphQlSubs: [
+        GraphQLSubscriptions.getAppPresenceSubscription(),
+        GraphQLSubscriptions.getDirectStatusSubscription(),
+        GraphQLSubscriptions.getDirectTypingSubscription(this.ig.state.cookieUserId),
+        GraphQLSubscriptions.getClientConfigUpdateSubscription(),
+      ],
+      skywalkerSubs: [
+        SkywalkerSubscriptions.directSub(this.ig.state.cookieUserId),
+      ],
+      enableTrace: false,
+      autoReconnect: true
+    };
+
+    if (config.useIrisData) {
+      console.log('📥 Fetching irisData from inbox...');
       const directInbox = await this.ig.feed.directInbox().request();
-
-      // Connect with subscriptions
-      await this.ig.realtime.connect({
-        graphQlSubs: [
-          GraphQLSubscriptions.getAppPresenceSubscription(),
-          GraphQLSubscriptions.getDirectStatusSubscription(),
-          GraphQLSubscriptions.getDirectTypingSubscription(this.ig.state.cookieUserId),
-          GraphQLSubscriptions.getClientConfigUpdateSubscription(),
-        ],
-        skywalkerSubs: [
-          SkywalkerSubscriptions.directSub(this.ig.state.cookieUserId),
-        ],
-        irisData: directInbox,
-        enableTrace: false,
-        autoReconnect: true
-      });
-
-      this.isConnected = true;
-      console.log('✅ Realtime connection established');
-    } catch (error) {
-      console.error('❌ Realtime connection failed:', error.message);
-      throw error;
+      connectionOptions.irisData = directInbox;
     }
+
+    await this.ig.realtime.connect(connectionOptions);
+
+    this.isConnected = true;
+    console.log('✅ Realtime connection established');
+  } catch (error) {
+    console.error('❌ Realtime connection failed:', error.message);
+    throw error;
   }
+}
 
   setupEventListeners() {
     // Direct messages
